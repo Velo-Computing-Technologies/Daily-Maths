@@ -11,12 +11,12 @@ header{background:#1a1c2b;padding:15px;display:flex;align-items:center;justify-c
 header img{height:40px;margin-right:10px;}
 header div{display:flex;align-items:center;}
 button{padding:8px 14px;margin:5px;border:none;border-radius:6px;cursor:pointer;background:#0A66C2;color:#fff;font-weight:500;}
-.container{padding:20px;max-width:900px;margin:auto;}
+.container{padding:20px;max-width:1000px;margin:auto;}
 .card{background:#1e2030;padding:20px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
 input,select{padding:8px;margin:5px;width:100%;border-radius:6px;border:none;}
 h3{margin-bottom:10px;color:#0A66C2;}
 .hidden{display:none;}
-.quiz-question{margin-bottom:12px;}
+.quiz-question{margin-bottom:15px;}
 canvas{border:1px solid #0A66C2;margin-top:10px;}
 </style>
 </head>
@@ -44,14 +44,17 @@ canvas{border:1px solid #0A66C2;margin-top:10px;}
 <div id="loginError" style="color:red;"></div>
 </div>
 
-<!-- Quiz Area -->
+<!-- Quiz -->
 <div id="quizCard" class="card hidden">
-<h3>Hard Problems</h3>
+<h3>Advanced Problems</h3>
 <select id="problemType">
-  <option value="geometry">Geometry</option>
-  <option value="algebra">Algebra</option>
+  <option value="algebra">Algebra (Very Hard)</option>
   <option value="calculus">Calculus</option>
+  <option value="geometry">Geometry</option>
   <option value="trig">Trigonometry</option>
+  <option value="vectors">Vectors</option>
+  <option value="matrices">Matrices</option>
+  <option value="probability">Probability</option>
   <option value="logic">Logic</option>
 </select>
 <button id="generateBtn">Generate Problems</button>
@@ -63,9 +66,6 @@ canvas{border:1px solid #0A66C2;margin-top:10px;}
 </div>
 
 <script>
-// -----------------------------
-// Supabase Setup
-// -----------------------------
 const SUPABASE_URL = "https://lqkpxervwakucksrnoss.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Sdi0YJz0IPwK9yV-0tLvCw_9IDZQhD8";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -73,43 +73,30 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null;
 let questions=[];
 
-// -----------------------------
-// Login / Signup (Email+Password)
-// -----------------------------
-async function login() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const loginError = document.getElementById("loginError");
-
+document.getElementById("doLoginBtn").addEventListener("click", async ()=>{
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value.trim();
+  const loginError=document.getElementById("loginError");
   loginError.textContent="";
   if(!email || !password){ loginError.textContent="Enter email & password"; return; }
 
-  let { data, error } = await supabaseClient.auth.signInWithPassword({email, password});
+  let {data,error} = await supabaseClient.auth.signInWithPassword({email,password});
   if(error){
-    // If user does not exist, signup
-    const { data: signupData, error: signupError } = await supabaseClient.auth.signUp({email,password});
+    const {data:signup,error:signupError} = await supabaseClient.auth.signUp({email,password});
     if(signupError){ loginError.textContent=signupError.message; return; }
-    loginError.textContent="Account created. Please log in again.";
+    loginError.textContent="Account created, please login.";
     return;
   }
-}
-window.login = login;
+});
 
-async function logout(){
+document.getElementById("logoutBtn").addEventListener("click", async ()=>{
   await supabaseClient.auth.signOut();
   currentUser=null;
   document.getElementById("authCard").classList.remove("hidden");
   document.getElementById("quizCard").classList.add("hidden");
   document.getElementById("logoutBtn").classList.add("hidden");
-}
-window.logout = logout;
+});
 
-document.getElementById("doLoginBtn").addEventListener("click", login);
-document.getElementById("logoutBtn").addEventListener("click", logout);
-
-// -----------------------------
-// Auth State Listener
-// -----------------------------
 supabaseClient.auth.onAuthStateChange((event, session)=>{
   if(session && session.user){
     currentUser=session.user;
@@ -119,38 +106,46 @@ supabaseClient.auth.onAuthStateChange((event, session)=>{
   }
 });
 
-// -----------------------------
-// Problem Generation
-// -----------------------------
+// ---------- Problem Generators ----------
 function randomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
 
-// Geometry example with real shapes (canvas)
 function generateProblem(type){
   switch(type){
-    case "geometry":{
-      const canvas=document.createElement("canvas");
-      canvas.width=200; canvas.height=200;
-      const ctx=canvas.getContext("2d");
-      const side=randomInt(20,100);
-      ctx.fillStyle="#0A66C2";
-      ctx.fillRect(50,50,side,side);
-      return {question:`A square is drawn. Side length = ${side}. Area = ?`, answer: side*side, canvas};
-    }
-    case "algebra":{
-      const x=randomInt(1,20), y=randomInt(1,20);
-      return {question:`Solve: ${x}x + ${y} = ${x*y + y}`, answer:1};
+    case "algebra": {
+      // Very hard: cubic/quadratic + system
+      const a=randomInt(1,10), b=randomInt(1,10), c=randomInt(1,10);
+      return {question:`Solve for x: ${a}x^3 + ${b}x^2 + ${c}x - ${a*b*c}=0`, answer:"complex"};
     }
     case "calculus":{
-      const n=randomInt(2,5);
-      return {question:`Derivative of x^${n} = ?`, answer:n+'x^'+(n-1)};
+      const n=randomInt(2,6);
+      return {question:`Derivative of x^${n} = ?`, answer:n+"x^"+(n-1)};
+    }
+    case "geometry":{
+      const canvas=document.createElement("canvas"); canvas.width=200; canvas.height=200;
+      const ctx=canvas.getContext("2d");
+      const r=randomInt(20,80);
+      ctx.beginPath(); ctx.arc(100,100,r,0,2*Math.PI); ctx.strokeStyle="#0A66C2"; ctx.lineWidth=3; ctx.stroke();
+      return {question:`Circle with radius ${r}. Area = ?`, answer:Math.round(Math.PI*r*r*100)/100, canvas};
     }
     case "trig":{
-      const angle=[30,45,60][randomInt(0,2)];
-      return {question:`sin(${angle}°) rounded to 2 decimals = ?`, answer: Math.round(Math.sin(angle*Math.PI/180)*100)/100};
+      const angle=[30,45,60,75,90][randomInt(0,4)];
+      return {question:`Compute sin(${angle}°) rounded to 2 decimals`, answer:Math.round(Math.sin(angle*Math.PI/180)*100)/100};
+    }
+    case "vectors":{
+      const x=randomInt(1,10), y=randomInt(1,10), z=randomInt(1,10);
+      return {question:`Vector A = (${x},${y},${z}), Vector B = (${y},${x},${z}). Compute A·B`, answer:x*y+y*x+z*z};
+    }
+    case "matrices":{
+      const a=randomInt(1,5), b=randomInt(1,5), c=randomInt(1,5), d=randomInt(1,5);
+      return {question:`Matrix [[${a},${b}],[${c},${d}]] Determinant = ?`, answer:a*d-b*c};
+    }
+    case "probability":{
+      const dice=randomInt(1,6);
+      return {question:`Probability of rolling ${dice} on a dice = ?`, answer:"1/6"};
     }
     case "logic":{
       const n=randomInt(1,10);
-      return {question:`Next in sequence: ${n}, ${n+2}, ${n+4}, ?`, answer: n+6};
+      return {question:`Next in sequence: ${n}, ${n*2}, ${n*4}, ?`, answer:n*8};
     }
     default: return {question:"1+1=?", answer:2};
   }
@@ -159,9 +154,9 @@ function generateProblem(type){
 document.getElementById("generateBtn").addEventListener("click", ()=>{
   const type=document.getElementById("problemType").value;
   const quizArea=document.getElementById("quizArea");
-  questions=[];
   quizArea.innerHTML="";
-  for(let i=0;i<5;i++){ // 5 hard problems
+  questions=[];
+  for(let i=0;i<5;i++){
     const p=generateProblem(type);
     questions.push(p);
     const div=document.createElement("div");
@@ -172,9 +167,7 @@ document.getElementById("generateBtn").addEventListener("click", ()=>{
   }
 });
 
-// -----------------------------
-// Submit Answers
-// -----------------------------
+// ---------- Submit ----------
 document.getElementById("submitBtn").addEventListener("click", async ()=>{
   let score=0;
   for(let i=0;i<questions.length;i++){
@@ -194,6 +187,5 @@ document.getElementById("submitBtn").addEventListener("click", async ()=>{
   }
 });
 </script>
-
 </body>
 </html>
