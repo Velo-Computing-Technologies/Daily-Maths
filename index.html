@@ -3,35 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DailyMaths | VCT</title>
+<title>DailyMaths | Velo Computing Technologies</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{font-family:sans-serif;background:#f4f7fb;margin:0;padding:0;}
-header{background:#0A66C2;color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;}
+body{margin:0;padding:0;font-family:Inter,sans-serif;background:#f4f7fb;}
+header{background:#0A66C2;color:white;padding:15px;display:flex;align-items:center;justify-content:space-between;}
+header img{height:40px;margin-right:10px;}
+header div{display:flex;align-items:center;}
 button{padding:8px 12px;margin:5px;border:none;border-radius:6px;cursor:pointer;}
 .container{padding:30px;}
 .card{background:white;padding:20px;border-radius:12px;margin-bottom:20px;}
 .hidden{display:none;}
 input{padding:8px;margin:5px;width:100%;}
+h3{margin-bottom:10px;}
 </style>
 </head>
 <body>
 
 <header>
-<div><b>DailyMaths</b> • Velo Computing Technologies</div>
+<div>
+<img src="https://cdn.velocomputing.tech/DailyMaths logo.png" alt="DailyMaths Logo">
+<b>DailyMaths</b> • Velo Computing Technologies
+</div>
 <button id="logoutBtn" class="hidden" onclick="logout()">Logout</button>
 </header>
 
 <div class="container">
 
+<!-- Auth Card -->
 <div id="authCard" class="card">
-<h3>Sign in / Create Account</h3>
+<h3>Sign in or Register</h3>
 <input id="email" type="email" placeholder="Email">
 <input id="password" type="password" placeholder="Password">
 <button onclick="login()">Sign In / Register</button>
 <div id="loginError" style="color:red;"></div>
 </div>
 
+<!-- Dashboard -->
 <div id="dashboard" class="hidden">
 <div class="card">
 <h3>Daily Quiz</h3>
@@ -44,6 +52,7 @@ input{padding:8px;margin:5px;width:100%;}
 <div id="progress"></div>
 </div>
 
+<!-- Admin Panel -->
 <div id="adminPanel" class="card hidden">
 <h3>Admin Panel</h3>
 <div id="adminContent"></div>
@@ -52,14 +61,16 @@ input{padding:8px;margin:5px;width:100%;}
 </div>
 
 <script>
+// -----------------------------
+// Supabase Config
+// -----------------------------
 const SUPABASE_URL = "https://lqkpxervwakucksrnoss.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Sdi0YJz0IPwK9yV-0tLvCw_9IDZQhD8";
-const supabase = supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentUser;
-let userRole = "student";
-let questions=[];
-
+// -----------------------------
+// DOM Elements
+// -----------------------------
 const authCard = document.getElementById("authCard");
 const dashboard = document.getElementById("dashboard");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -69,34 +80,43 @@ const adminContent = document.getElementById("adminContent");
 const quizArea = document.getElementById("quizArea");
 const progress = document.getElementById("progress");
 
-// --------------------
-// Login / Register
-// --------------------
-async function login(){
-  loginError.textContent="";
-  const emailVal = document.getElementById("email").value;
-  const passwordVal = document.getElementById("password").value;
-  if(!emailVal || !passwordVal){ loginError.textContent="Email & password required"; return; }
+let currentUser;
+let userRole = "student";
+let questions = [];
 
-  try{
-    // Try sign in
-    const { data, error } = await supabase.auth.signInWithPassword({ email: emailVal, password: passwordVal });
-    if(error && error.message.includes("Invalid login credentials")){
-      // If fail, try register
-      const { data: regData, error: regError } = await supabase.auth.signUp({ email: emailVal, password: passwordVal });
-      if(regError){ loginError.textContent = regError.message; return; }
+// -----------------------------
+// Login / Register
+// -----------------------------
+async function login() {
+  loginError.textContent = "";
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  if(!email || !password){ loginError.textContent="Email & password required"; return; }
+
+  // Sign in
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){
+    if(error.message.includes("Invalid login credentials")){
+      // Try sign-up
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password });
+      if(signUpErr){ loginError.textContent = signUpErr.message; return; }
+      loginError.textContent = "Account created. Please check email to confirm.";
+    } else {
+      loginError.textContent = error.message;
     }
-  } catch(e){ loginError.textContent = e.message; }
+  }
 }
 
-// --------------------
+// -----------------------------
 // Logout
-// --------------------
-async function logout(){ await supabase.auth.signOut(); }
+// -----------------------------
+async function logout(){
+  await supabase.auth.signOut();
+}
 
-// --------------------
-// Auth state
-// --------------------
+// -----------------------------
+// Auth state change
+// -----------------------------
 supabase.auth.onAuthStateChange(async (event, session)=>{
   if(session && session.user){
     currentUser = session.user;
@@ -107,7 +127,7 @@ supabase.auth.onAuthStateChange(async (event, session)=>{
     await generateDailyQuiz();
     await loadProgress();
   } else {
-    currentUser=null;
+    currentUser = null;
     authCard.classList.remove("hidden");
     dashboard.classList.add("hidden");
     logoutBtn.classList.add("hidden");
@@ -115,16 +135,16 @@ supabase.auth.onAuthStateChange(async (event, session)=>{
   }
 });
 
-// --------------------
+// -----------------------------
 // Load Role & Admin
-// --------------------
+// -----------------------------
 async function loadUserRole(){
   const { data } = await supabase.from("profiles").select("role,school_id").eq("id",currentUser.id).single();
   if(data){
-    userRole=data.role;
-    if(userRole!=="student"){
+    userRole = data.role;
+    if(userRole !== "student"){
       adminPanel.classList.remove("hidden");
-      adminContent.innerHTML=`
+      adminContent.innerHTML = `
         <b>Role:</b> ${data.role}<br><br>
         <button onclick="createSchool()">Create School</button>
         <button onclick="addUser()">Add User</button>
@@ -134,54 +154,60 @@ async function loadUserRole(){
   }
 }
 
-// --------------------
+// -----------------------------
 // Daily Quiz
-// --------------------
+// -----------------------------
 function seededRandom(seed){
   let x = Math.sin(seed++)*10000;
   return x - Math.floor(x);
 }
 
 async function generateDailyQuiz(){
-  let schoolId=currentUser?.school_id||"00000000-0000-0000-0000-000000000000";
+  let schoolId = currentUser?.school_id || "00000000-0000-0000-0000-000000000000";
   const today = new Date().toISOString().slice(0,10);
   let seedStr = today.split("-").join("") + schoolId;
   let numericSeed=0;
-  for(let i=0;i<seedStr.length;i++) numericSeed+=seedStr.charCodeAt(i);
+  for(let i=0;i<seedStr.length;i++) numericSeed += seedStr.charCodeAt(i);
 
   const {data: problems} = await supabase.from("problem_bank").select("*").eq("school_id",schoolId);
 
   questions=[]; quizArea.innerHTML="";
   for(let i=0;i<10;i++){
     numericSeed++;
-    let problem=problems[Math.floor(seededRandom(numericSeed)*problems.length)]||{question:`${i+1}+${i+2}`,answer:`${i+1+i+2}`};
+    let problem = problems[Math.floor(seededRandom(numericSeed)*problems.length)] || {question:`${i+1}+${i+2}`, answer:`${i+1+i+2}`};
     questions.push(problem);
-    quizArea.innerHTML+=`<div>${problem.question} = <input id="q${i}"></div>`;
+    quizArea.innerHTML += `<div>${problem.question} = <input id="q${i}"></div>`;
   }
 }
 
+// -----------------------------
+// Submit Quiz
+// -----------------------------
 async function submitQuiz(){
-  let score=0;
+  let score = 0;
   for(let i=0;i<questions.length;i++){
-    let val=document.getElementById("q"+i).value;
-    if(val==questions[i].answer) score++;
+    let val = document.getElementById("q"+i).value;
+    if(val == questions[i].answer) score++;
   }
-  await supabase.from("quiz_attempts").insert({user_id:currentUser.id,school_id:currentUser.school_id,score:score,total:questions.length,mode:'daily'});
+  await supabase.from("quiz_attempts").insert({ user_id: currentUser.id, school_id: currentUser.school_id, score: score, total: questions.length, mode:'daily' });
   alert(`Score: ${score}/${questions.length}`);
   loadProgress();
 }
 
+// -----------------------------
+// Load Progress
+// -----------------------------
 async function loadProgress(){
   const {data} = await supabase.from("quiz_attempts").select("*").eq("user_id",currentUser.id);
   progress.innerHTML="";
   data.forEach(r=>{
-    progress.innerHTML+=`<div>${new Date(r.taken_at).toLocaleDateString()} — ${r.score}/${r.total}</div>`;
+    progress.innerHTML += `<div>${new Date(r.taken_at).toLocaleDateString()} — ${r.score}/${r.total}</div>`;
   });
 }
 
-// --------------------
-// Admin functions
-// --------------------
+// -----------------------------
+// Admin Functions
+// -----------------------------
 async function createSchool(){ let name=prompt("School Name:"); if(!name) return; await supabase.from("schools").insert({name:name,owner_id:currentUser.id}); alert("School Created"); }
 async function addUser(){ let email=prompt("User Email:"); alert("Invite via Supabase Dashboard"); }
 async function addProblem(){ let q=prompt("Problem text:"); let a=prompt("Answer:"); let type=prompt("Type:"); await supabase.from("problem_bank").insert({school_id:currentUser.school_id,question:q,answer:a,type:type,created_by:currentUser.id}); alert("Problem Added"); }
