@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NailLang | Velo Computing</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body { margin:0; padding:0; font-family:Inter,sans-serif; background:#0f111a; color:#fff; }
+header {background:#1a1c2b; padding:15px; display:flex; justify-content:space-between; align-items:center;}
+header img{height:40px; margin-right:10px;}
+button{padding:8px 14px; margin:5px; border:none; border-radius:6px; cursor:pointer; background:#0A66C2; color:#fff;}
+.container{padding:20px; max-width:900px; margin:auto;}
+.card{background:#1e2030; padding:20px; border-radius:12px; margin-bottom:20px;}
+input,textarea,select{padding:8px; margin:5px 0; width:100%; border-radius:6px; border:none; background:#2a2c3b; color:#fff;}
+h3,h4{color:#0A66C2;}
+.result-box{margin-top:10px; padding:10px; background:#0A66C2; border-radius:8px;}
+</style>
+</head>
+<body>
+
+<header>
+<div>
+<img src="https://cdn.velocomputing.tech/nail-lang-logo.png" alt="NailLang Logo">
+<b>NailLang</b> • Velo Computing
+</div>
+</header>
+
+<div class="container">
+
+<!-- Grammar Correction -->
+<div class="card">
+<h3>Grammar Checker (Rule‑Based)</h3>
+<textarea id="grammarText" rows="4" placeholder="Type text here..."></textarea>
+<button onclick="checkGrammar()">Check Grammar</button>
+<div id="grammarResult" class="result-box hidden"></div>
+</div>
+
+<!-- Vocabulary Lookup -->
+<div class="card">
+<h3>Vocabulary Lookup</h3>
+<input id="vocabWord" type="text" placeholder="Enter a word">
+<button onclick="lookupWord()">Lookup</button>
+<div id="vocabResult" class="result-box hidden"></div>
+</div>
+
+<!-- Sentence Construction Quiz -->
+<div class="card">
+<h3>Sentence Construction</h3>
+<div id="sentenceQuiz"></div>
+<input id="sentenceAnswer" placeholder="Your sentence">
+<button onclick="submitSentence()">Submit</button>
+<div id="sentenceFeedback" class="result-box hidden"></div>
+</div>
+
+</div>
+
+<script>
+/*
+  PRODUCTION NON‑AI NailLang
+  Uses:
+  - Dictionary API (definitions, synonyms, examples)
+  - LanguageTool API (grammar check)
+*/
+
+// ------------------------------
+// Grammar Checker (LanguageTool)
+// ------------------------------
+async function checkGrammar(){
+  const text = document.getElementById("grammarText").value.trim();
+  if(!text) return alert("Please enter text!");
+
+  const params = new URLSearchParams();
+  params.append("text", text);
+  params.append("language", "en-US");
+
+  const res = await fetch("https://api.languagetool.org/v2/check", {
+    method:"POST",
+    body:params
+  });
+
+  const data = await res.json();
+  const resultDiv = document.getElementById("grammarResult");
+  resultDiv.classList.remove("hidden");
+
+  if(data.matches.length === 0){
+    resultDiv.textContent = "No issues found!";
+    return;
+  }
+
+  // Show issues
+  let output = "";
+  data.matches.forEach((m,idx)=>{
+    output += `${idx+1}. ${m.message}\n`;
+  });
+  resultDiv.textContent = output;
+}
+
+// ------------------------------
+// Vocabulary Lookup (Dictionary API)
+// ------------------------------
+async function lookupWord(){
+  const word = document.getElementById("vocabWord").value.trim().toLowerCase();
+  if(!word) return alert("Please enter a word!");
+
+  const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+  const data = await res.json();
+  const resultDiv = document.getElementById("vocabResult");
+  resultDiv.classList.remove("hidden");
+
+  if(data.title === "No Definitions Found"){
+    resultDiv.textContent = `No definition found for "${word}"`;
+    return;
+  }
+
+  // Grab first meaning
+  const meaning = data[0].meanings[0];
+  const defs = meaning.definitions[0];
+
+  let output = `Word: ${word}\n`;
+  output += `Part of Speech: ${meaning.partOfSpeech}\n`;
+  output += `Definition: ${defs.definition}\n`;
+  if(defs.example) output += `Example: ${defs.example}\n`;
+  if(defs.synonyms && defs.synonyms.length) output += `Synonyms: ${defs.synonyms.join(", ")}\n`;
+  if(defs.antonyms && defs.antonyms.length) output += `Antonyms: ${defs.antonyms.join(", ")}\n`;
+
+  resultDiv.textContent = output;
+}
+
+// ------------------------------
+// Sentence Construction Quiz
+// ------------------------------
+const sentences = [
+  {words:["the","quick","brown","fox","jumps","over","lazy","dog"], sentence:"The quick brown fox jumps over the lazy dog."},
+  {words:["I","am","learning","English","today"], sentence:"I am learning English today."},
+  {words:["she","read","book","yesterday"], sentence:"She read a book yesterday."}
+];
+let currentSentence = 0;
+
+function showSentence(){
+  const s = sentences[currentSentence];
+  const shuffled = [...s.words].sort(()=>Math.random()-0.5);
+  document.getElementById("sentenceQuiz").textContent = "Arrange words: " + shuffled.join(" ");
+  document.getElementById("sentenceFeedback").classList.add("hidden");
+  document.getElementById("sentenceAnswer").value = "";
+}
+
+function submitSentence(){
+  const answer = document.getElementById("sentenceAnswer").value.trim();
+  const feedback = document.getElementById("sentenceFeedback");
+  feedback.classList.remove("hidden");
+
+  const correct = sentences[currentSentence].sentence.toLowerCase();
+  if(answer.toLowerCase() === correct){
+    feedback.textContent = "Correct! 🎉";
+  } else {
+    feedback.textContent = `Incorrect. Correct: ${correct}`;
+  }
+  currentSentence = (currentSentence+1) % sentences.length;
+  showSentence();
+}
+
+// Initialize first sentence
+showSentence();
+
+</script>
+
+</body>
+</html>
