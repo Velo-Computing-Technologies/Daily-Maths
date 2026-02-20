@@ -135,6 +135,8 @@ async function login() {
     document.getElementById("authCard").classList.add("hidden");
     document.getElementById("toolsCard").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
+    fetchVocabQuestion();
+    fetchSentenceQuestion();
   }
 }
 
@@ -158,6 +160,8 @@ window.supabaseClient.auth.onAuthStateChange((event, session) => {
     document.getElementById("authCard").classList.add("hidden");
     document.getElementById("toolsCard").classList.remove("hidden");
     document.getElementById("logoutBtn").classList.remove("hidden");
+    fetchVocabQuestion();
+    fetchSentenceQuestion();
   }
 });
 
@@ -227,83 +231,85 @@ document.getElementById("lookupBtn").addEventListener("click", async ()=>{
 });
 
 // -----------------------------
-// Vocabulary Quiz
+// Vocabulary Quiz (Dynamic)
 // -----------------------------
-const vocabQuestions=[
-  {q:"Synonym of 'happy'", a:"joyful"},
-  {q:"Antonym of 'increase'", a:"decrease"},
-  {q:"Synonym of 'fast'", a:"quick"},
-  {q:"Synonym of 'beautiful'", a:"gorgeous"},
-  {q:"Antonym of 'strong'", a:"weak"}
-];
-let currentVocabIndex=0;
-
-function showVocab(){
-  document.getElementById("vocabQuestion").textContent=vocabQuestions[currentVocabIndex].q;
+let currentVocab = null;
+async function fetchVocabQuestion() {
+  const { data, error } = await window.supabaseClient
+    .from("nail_vocab_quiz")
+    .select("*")
+    .order('id',{ascending:false})
+    .limit(1)
+    .single();
+  if(error){ console.error(error); return; }
+  currentVocab = data;
+  document.getElementById("vocabQuestion").textContent = data.question;
   document.getElementById("vocabResultQuiz").classList.add("hidden");
 }
-showVocab();
 
 document.getElementById("vocabSubmitBtn").addEventListener("click", async ()=>{
-  const ans=document.getElementById("vocabAnswer").value.trim().toLowerCase();
-  const result=document.getElementById("vocabResultQuiz");
-  if(ans===vocabQuestions[currentVocabIndex].a){ result.textContent="✅ Correct!"; }
-  else{ result.textContent=`❌ Incorrect. Correct: ${vocabQuestions[currentVocabIndex].a}`; }
+  const ans = document.getElementById("vocabAnswer").value.trim().toLowerCase();
+  const result = document.getElementById("vocabResultQuiz");
+  if(ans===currentVocab.answer.toLowerCase()){ result.textContent="✅ Correct!"; }
+  else{ result.textContent=`❌ Incorrect. Correct: ${currentVocab.answer}`; }
   result.classList.remove("hidden");
 
   if(currentUser){
     await window.supabaseClient.from("nail_lang_progress").insert({
       user_id: currentUser.id,
       type:"vocab_quiz",
-      input:vocabQuestions[currentVocabIndex].q,
+      input:currentVocab.question,
       result:result.textContent
     });
   }
 
-  currentVocabIndex=(currentVocabIndex+1)%vocabQuestions.length;
-  document.getElementById("vocabAnswer").value="";
-  showVocab();
+  await fetchVocabQuestion();
 });
 
 // -----------------------------
-// Sentence Construction Quiz
+// Sentence Construction (Dynamic)
 // -----------------------------
-const sentences=[
-  {words:["quickly","the","fox","jumps","over","lazy","dog"], sentence:"The fox jumps over the lazy dog quickly."},
-  {words:["I","to","school","go"], sentence:"I go to school."},
-  {words:["she","reading","is","book","a"], sentence:"She is reading a book."}
-];
-let currentSentenceIndex=0;
+let currentSentence = null;
+async function fetchSentenceQuestion() {
+  const { data, error } = await window.supabaseClient
+    .from("nail_sentence_quiz")
+    .select("id,sentence")
+    .order('id',{ascending:false})
+    .limit(1)
+    .single();
+  if(error){ console.error(error); return; }
+  currentSentence = data;
 
-function showSentence(){
-  const shuffled = sentences[currentSentenceIndex].words.sort(()=>Math.random()-0.5);
-  document.getElementById("sentenceQuestion").textContent="Arrange words: "+shuffled.join(" ");
+  const { data: wordsData } = await window.supabaseClient
+    .from("nail_sentence_words")
+    .select("word")
+    .eq("sentence_id", currentSentence.id);
+
+  const shuffled = wordsData.map(w=>w.word).sort(()=>Math.random()-0.5);
+  document.getElementById("sentenceQuestion").textContent = "Arrange words: "+shuffled.join(" ");
   document.getElementById("sentenceResult").classList.add("hidden");
   document.getElementById("sentenceAnswer").value="";
 }
-showSentence();
 
 document.getElementById("sentenceSubmitBtn").addEventListener("click", async ()=>{
-  const ans=document.getElementById("sentenceAnswer").value.trim();
-  const result=document.getElementById("sentenceResult");
-  const correct = sentences[currentSentenceIndex].sentence;
-  if(ans.toLowerCase()===correct.toLowerCase()){ result.textContent="✅ Correct!"; }
-  else{ result.textContent=`❌ Incorrect. Correct: ${correct}`; }
+  const ans = document.getElementById("sentenceAnswer").value.trim();
+  const result = document.getElementById("sentenceResult");
+  if(ans.toLowerCase()===currentSentence.sentence.toLowerCase()){ result.textContent="✅ Correct!"; }
+  else{ result.textContent=`❌ Incorrect. Correct: ${currentSentence.sentence}`; }
   result.classList.remove("hidden");
 
   if(currentUser){
     await window.supabaseClient.from("nail_lang_progress").insert({
       user_id: currentUser.id,
       type:"sentence_quiz",
-      input:sentences[currentSentenceIndex].words.join(" "),
+      input:currentSentence.sentence,
       result:result.textContent
     });
   }
 
-  currentSentenceIndex=(currentSentenceIndex+1)%sentences.length;
-  showSentence();
+  await fetchSentenceQuestion();
 });
-</script>
 
+</script>
 </body>
 </html>
