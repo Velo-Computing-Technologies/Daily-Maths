@@ -89,12 +89,12 @@ h3,h4{color:#0A66C2;}
 // -----------------------------
 const SUPABASE_URL = "https://lqkpxervwakucksrnoss.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Sdi0YJz0IPwK9yV-0tLvCw_9IDZQhD8";
-
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 let currentUser = null;
 
-// Login
+// -----------------------------
+// Authentication
+// -----------------------------
 document.getElementById("doLoginBtn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -109,14 +109,10 @@ document.getElementById("doLoginBtn").addEventListener("click", async () => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   
   if (error) {
-    // Optional: auto-signup if user not found
-    if (error.status === 400 || error.message.includes("invalid login")) {
-      const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
-      if (signupError) { loginError.textContent = signupError.message; return; }
-      loginError.textContent = "Account created! Please log in again.";
-      return;
-    }
-    loginError.textContent = error.message;
+    // Auto-signup if login fails
+    const { data: signupData, error: signupError } = await supabase.auth.signUp({ email, password });
+    if (signupError) { loginError.textContent = signupError.message; return; }
+    loginError.textContent = "Account created! Please log in again.";
     return;
   }
 
@@ -167,6 +163,15 @@ document.getElementById("checkGrammarBtn").addEventListener("click", async ()=>{
     let output="";
     data.matches.forEach((m,i)=> output+=`${i+1}. ${m.message}\n`);
     resultDiv.textContent=output;
+    // Save progress
+    if(currentUser){
+      await supabase.from("nail_lang_progress").insert({
+        user_id: currentUser.id,
+        type: "grammar",
+        input: text,
+        result: output
+      });
+    }
   } catch(err){ resultDiv.textContent="Error: "+err.message; }
 });
 
@@ -190,6 +195,15 @@ document.getElementById("lookupBtn").addEventListener("click", async ()=>{
     if(defs.synonyms?.length) output+=`Synonyms: ${defs.synonyms.join(", ")}\n`;
     if(defs.antonyms?.length) output+=`Antonyms: ${defs.antonyms.join(", ")}\n`;
     resultDiv.textContent=output;
+    // Save progress
+    if(currentUser){
+      await supabase.from("nail_lang_progress").insert({
+        user_id: currentUser.id,
+        type: "vocab_lookup",
+        input: word,
+        result: output
+      });
+    }
   } catch(err){ resultDiv.textContent="Error: "+err.message; }
 });
 
@@ -211,19 +225,30 @@ function showVocab(){
 }
 showVocab();
 
-document.getElementById("vocabSubmitBtn").addEventListener("click", ()=>{
+document.getElementById("vocabSubmitBtn").addEventListener("click", async ()=>{
   const ans=document.getElementById("vocabAnswer").value.trim().toLowerCase();
   const result=document.getElementById("vocabResultQuiz");
   if(ans===vocabQuestions[currentVocabIndex].a){ result.textContent="✅ Correct!"; }
   else{ result.textContent=`❌ Incorrect. Correct: ${vocabQuestions[currentVocabIndex].a}`; }
   result.classList.remove("hidden");
+
+  // Save progress
+  if(currentUser){
+    await supabase.from("nail_lang_progress").insert({
+      user_id: currentUser.id,
+      type: "vocab_quiz",
+      input: vocabQuestions[currentVocabIndex].q,
+      result: result.textContent
+    });
+  }
+
   currentVocabIndex=(currentVocabIndex+1)%vocabQuestions.length;
   document.getElementById("vocabAnswer").value="";
   showVocab();
 });
 
 // -----------------------------
-// Sentence Construction
+// Sentence Construction Quiz
 // -----------------------------
 const sentences=[
   {words:["quickly","the","fox","jumps","over","lazy","dog"], sentence:"The fox jumps over the lazy dog quickly."},
@@ -240,13 +265,24 @@ function showSentence(){
 }
 showSentence();
 
-document.getElementById("sentenceSubmitBtn").addEventListener("click", ()=>{
+document.getElementById("sentenceSubmitBtn").addEventListener("click", async ()=>{
   const ans=document.getElementById("sentenceAnswer").value.trim();
   const result=document.getElementById("sentenceResult");
   const correct = sentences[currentSentenceIndex].sentence;
   if(ans.toLowerCase()===correct.toLowerCase()){ result.textContent="✅ Correct!"; }
   else{ result.textContent=`❌ Incorrect. Correct: ${correct}`; }
   result.classList.remove("hidden");
+
+  // Save progress
+  if(currentUser){
+    await supabase.from("nail_lang_progress").insert({
+      user_id: currentUser.id,
+      type: "sentence_quiz",
+      input: sentences[currentSentenceIndex].words.join(" "),
+      result: result.textContent
+    });
+  }
+
   currentSentenceIndex=(currentSentenceIndex+1)%sentences.length;
   showSentence();
 });
